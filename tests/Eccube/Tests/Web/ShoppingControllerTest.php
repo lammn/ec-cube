@@ -24,6 +24,9 @@
 
 namespace Eccube\Tests\Web;
 
+
+use Eccube\Tests\Web\Admin\Order\MailControllerTest;
+
 class ShoppingControllerTest extends AbstractWebTestCase
 {
 
@@ -103,6 +106,7 @@ class ShoppingControllerTest extends AbstractWebTestCase
         $this->actual = $Message->subject;
         $this->verify();
 
+
         // 生成された受注のチェック
         $Order = $this->app['eccube.repository.order']->findOneBy(
             array(
@@ -118,6 +122,21 @@ class ShoppingControllerTest extends AbstractWebTestCase
         $this->expected = $Customer->getName01();
         $this->actual = $Order->getName01();
         $this->verify();
+
+        $mailTest = new MailControllerTest();
+        $mailTest->setUp($Order);
+        $form = $mailTest->testIndexWithComplete($Order);
+
+        $crawler = $this->client->request(
+            'GET',
+            $this->app->url('mypage_history', array('id' => $Order->getId()))
+        );
+        
+        //check shop name exist or not.
+
+        $expected = $form['subject'];
+        $actual = $crawler->filter('#mail_list')->html();
+        $this->assertContains($expected, $actual);
     }
 
     /**
