@@ -12,17 +12,14 @@ class MailControllerTest extends AbstractAdminWebTestCase
     protected $Customer;
     protected $Order;
 
-    public function setUp($Order = null)
+    public function setUp()
     {
         parent::setUp();
         $this->initializeMailCatcher();
         $faker = $this->getFaker();
         $this->Member = $this->app['eccube.repository.member']->find(2);
         $this->Customer = $this->createCustomer();
-        if($Order == null)
-            $this->Order = $this->createOrder($this->Customer);
-        else
-            $this->Order = $Order;
+        $this->Order = $this->createOrder($this->Customer);
 
         $MailTemplate = new MailTemplate();
         $MailTemplate
@@ -58,10 +55,9 @@ class MailControllerTest extends AbstractAdminWebTestCase
     public function createFormData()
     {
         $faker = $this->getFaker();
-        $BaseInfo = $this->app['eccube.repository.base_info']->get();
         $form = array(
             'template' => 1,
-            'subject' => '[' . $BaseInfo->getShopName() . '] '. $faker->word,
+            'subject' => $faker->word,
             'header' => $faker->paragraph,
             'footer' => $faker->paragraph,
             '_token' => 'dummy'
@@ -96,9 +92,8 @@ class MailControllerTest extends AbstractAdminWebTestCase
         $this->verify();
     }
 
-    public function testIndexWithComplete($Order = null)
+    public function testIndexWithComplete()
     {
-
         $form = $this->createFormData();
         $crawler = $this->client->request(
             'POST',
@@ -110,16 +105,13 @@ class MailControllerTest extends AbstractAdminWebTestCase
         );
         $this->assertTrue($this->client->getResponse()->isRedirect($this->app->url('admin_order_mail_complete')));
 
-
         $Messages = $this->getMailCatcherMessages();
-        if($Order == null){
-            $Message = $this->getMailCatcherMessage($Messages[0]->id);
-            $BaseInfo = $this->app['eccube.repository.base_info']->get();
-            $this->expected = $form['subject'];
-            $this->actual = $Message->subject;
-            $this->verify();
-        }
-        return $form;
+        $Message = $this->getMailCatcherMessage($Messages[0]->id);
+
+        $BaseInfo = $this->app['eccube.repository.base_info']->get();
+        $this->expected = '[' . $BaseInfo->getShopName() . '] '.$form['subject'];
+        $this->actual = $Message->subject;
+        $this->verify();
     }
 
     public function testView()
@@ -203,7 +195,7 @@ class MailControllerTest extends AbstractAdminWebTestCase
         $Message = $this->getMailCatcherMessage($Messages[0]->id);
 
         $BaseInfo = $this->app['eccube.repository.base_info']->get();
-        $this->expected = $form['subject'];
+        $this->expected = '[' . $BaseInfo->getShopName() . '] '.$form['subject'];
         $this->actual = $Message->subject;
         $this->verify();
     }

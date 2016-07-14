@@ -81,7 +81,7 @@ class MailController
                     );
                     $app['eccube.event.dispatcher']->dispatch(EccubeEvents::ADMIN_ORDER_MAIL_INDEX_CHANGE, $event);
                     $form->get('template')->setData($MailTemplate);
-                    $form->get('subject')->setData("[". $BaseInfo->getShopName() . "]".$MailTemplate->getSubject());
+                    $form->get('subject')->setData('[' . $BaseInfo->getShopName() . ']' . $MailTemplate->getSubject());
                     $form->get('header')->setData($MailTemplate->getHeader());
                     $form->get('footer')->setData($MailTemplate->getFooter());
                 }
