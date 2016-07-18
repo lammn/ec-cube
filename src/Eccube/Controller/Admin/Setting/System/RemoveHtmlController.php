@@ -26,6 +26,7 @@ namespace Eccube\Controller\Admin\Setting\System;
 
 use Eccube\Application;
 use Eccube\Controller\AbstractController;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Class RemoveHtmlController remove html in url
@@ -40,7 +41,11 @@ class RemoveHtmlController extends AbstractController
 
     private $dir;
 
-    private $backupFile;
+    private $backupExt = '.bak';
+
+    private $accessFileName;
+
+    private $pathName = 'path.yml';
 
     /**
      * RemoveHtmlController constructor.
@@ -85,16 +90,26 @@ class RemoveHtmlController extends AbstractController
         }
 
         // Backup check
-        $this->backupFile = '.htaccess.old';
+        $this->accessFileName = '.htaccess';
         $this->dir = $root;
-        $isRollBack = $system->isRollBack($isHiddenHTML, $this->dir, $this->backupFile);
+        $accessFile = $this->dir . '/' . $this->accessFileName;
+        $isRollBack = $system->isRollBack($isHiddenHTML, $this->dir, $this->accessFileName . $this->backupExt);
+
+
+        $apache = $app['eccube.service.apache'];
+        $configDir = $app['config']['root_dir'] . '/app/config/eccube/';
+        $pathFile = $configDir . $this->pathName;
 
         switch ($app['request']->get('mode')) {
             case 'remove':
-                echo 1;
+                $apache->backupConfig($accessFile, $accessFile . $this->backupExt);
+                $apache->changeConfig($accessFile, $accessFile);
+                $this->changeContentYml($configDir, $this->pathName, $this->backupExt);
                 break;
+
             case 'rollback':
-                echo 2;
+                $apache->rollbackConfig($accessFile . $this->backupExt, $accessFile);
+                $apache->rollbackConfig($pathFile . $this->backupExt, $pathFile);
                 break;
 
             default:
@@ -106,5 +121,46 @@ class RemoveHtmlController extends AbstractController
             'is_hidden_html' => $isHiddenHTML,
             'is_rollback' => $isRollBack,
         ));
+    }
+
+    /**
+     * Change content of yml config file
+     * @param $dir
+     * @param $filename
+     * @param string $extBackup
+     * @return bool
+     */
+    protected function changeContentYml($dir, $filename, $extBackup = '.bak')
+    {
+        $filePath = $dir . $filename;
+        $fileContent = '';
+
+        if (file_exists($filePath)) {
+            $fileContent = Yaml::parse(file_get_contents($filePath));
+        }
+
+        if (empty($fileContent)) {
+            return false;
+        }
+
+        // backup file
+        copy($filePath, $filePath . $extBackup);
+
+        $path = $fileContent['public_path'];
+        foreach ($fileContent as $key => $item) {
+            if (strpos($key, 'urlpath') !== false || strpos($key, 'tpl') !== false) {
+                $fileContent[$key] = str_replace($path, '', $item);
+            }
+        }
+        $fileContent['image_path'] = str_replace($path, '', $fileContent['image_path']);
+
+        $tmp = str_replace($path, '', $fileContent['root']);
+        $fileContent['root'] = $tmp == '' ? '/' : $tmp ;
+        $fileContent['root_urlpath'] = str_replace(trim($path, '/'), '', $fileContent['root_urlpath']);
+        
+        $ymlContent = Yaml::dump($fileContent);
+
+        file_put_contents($filePath, $ymlContent);
+        return true;
     }
 }
