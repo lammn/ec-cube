@@ -23,33 +23,44 @@
 
 namespace Eccube\Service;
 
+use Eccube\Controller\AbstractWebServerConfigService;
 
-abstract class AbstractWebServerConfigService
+class ApacheWebServerConfigService extends AbstractWebServerConfigService
 {
-    abstract protected function readConfig($source);
 
-    abstract protected function getVersion();
-
-    abstract protected function getRewriteTextConfig($version);
-
-    abstract protected function parseConfig($source);
-
-    abstract protected function appendConfig($config, $append);
-
-    abstract protected function writeConfig($content, $destination);
-
-    public function backupConfig($source, $destination)
+    protected function getVersion()
     {
-        if (!copy($source, $destination)) {
-            return 0;
-        }
-        return 1;
+        return apache_get_version();
     }
 
-    public function rollbackConfig($source, $destination)
+    protected function getRewriteTextConfig($version)
     {
-        unlink($destination);
-        rename($source, $destination);
+        $version2 = preg_match('/Apache\/2./i', $version, $matches, PREG_OFFSET_CAPTURE);
+        if ($version2) {
+            $rewrite = '<IfModule mod_rewrite.c>
+                            RewriteEngine On
+                            RewriteBase /
+                            RewriteRule ^(.*)$ html/$1 [QSA,L]
+                        </IfModule>';
+        }
+        return $rewrite;
+    }
+
+    protected function parseConfig($source)
+    {
+        return file_get_contents($source);
+    }
+
+    protected function appendConfig($config, $append)
+    {
+        return $config . $append;
+    }
+
+    protected function writeConfig($content, $destination)
+    {
+        $myfile = fopen($destination, "w") or die("Unable to open file!");
+        fwrite($myfile, $content);
+        fclose($myfile);
     }
 
     public function changeConfig($source, $destination)
@@ -60,7 +71,5 @@ abstract class AbstractWebServerConfigService
         $configContent = $this->appendConfig($content, $append);
         $this->writeConfig($configContent, $destination);
     }
-
-
 }
 
