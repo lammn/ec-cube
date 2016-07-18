@@ -26,8 +26,6 @@ namespace Eccube\Service;
 
 abstract class AbstractWebServerConfigService
 {
-    abstract protected function readConfig($source);
-
     abstract protected function getVersion();
 
     abstract protected function getRewriteTextConfig($version);
@@ -48,8 +46,10 @@ abstract class AbstractWebServerConfigService
 
     public function rollbackConfig($source, $destination)
     {
-        unlink($destination);
-        rename($source, $destination);
+        if (file_exists($source)) {
+            unlink($destination);
+            rename($source, $destination);
+        }
     }
 
     public function changeConfig($source, $destination)

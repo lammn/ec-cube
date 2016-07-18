@@ -23,7 +23,7 @@
 
 namespace Eccube\Service;
 
-use Eccube\Controller\AbstractWebServerConfigService;
+use Eccube\Service\AbstractWebServerConfigService;
 
 class ApacheWebServerConfigService extends AbstractWebServerConfigService
 {
@@ -37,23 +37,34 @@ class ApacheWebServerConfigService extends AbstractWebServerConfigService
     {
         $version2 = preg_match('/Apache\/2./i', $version, $matches, PREG_OFFSET_CAPTURE);
         if ($version2) {
-            $rewrite = '<IfModule mod_rewrite.c>
-                            RewriteEngine On
-                            RewriteBase /
-                            RewriteRule ^(.*)$ html/$1 [QSA,L]
-                        </IfModule>';
+            $rewrite = '
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    RewriteRule ^(.*)$ html/$1 [QSA,L]
+</IfModule>';
         }
         return $rewrite;
     }
 
     protected function parseConfig($source)
     {
-        return file_get_contents($source);
+        return $htaccess = file($source);
     }
 
     protected function appendConfig($config, $append)
     {
-        return $config . $append;
+        $result = '';
+        foreach ($config as $line) {
+            if (strcmp('deny from all', strtolower(preg_replace('!\s+!', ' ', $line))) === 0) {
+                $result .= 'allow from all' . PHP_EOL;
+            } else {
+                $result .= preg_replace('!\s+!', ' ', $line) . PHP_EOL;
+            }
+        }
+        if (strpos(strtolower(preg_replace('!\s+!', ' ', $result)), strtolower(preg_replace('!\s+!', ' ', $append))) == false)
+            return $result . $append;
+        return $result;
     }
 
     protected function writeConfig($content, $destination)
