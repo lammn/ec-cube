@@ -24,6 +24,7 @@
 namespace Eccube\Service;
 
 use Eccube\Application;
+use Symfony\Component\Yaml\Yaml;
 
 class SystemService
 {
@@ -123,6 +124,64 @@ class SystemService
     {
         if (is_dir($dir) && is_writeable($dir)) {
             return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Change content of yml config file
+     * @param $dir
+     * @param $filename
+     * @param string $extBackup
+     * @return bool
+     */
+    public function changeContentYml($dir, $filename, $extBackup = '.bak')
+    {
+        $filePath = $dir . $filename;
+        $fileContent = '';
+
+        if (file_exists($filePath)) {
+            $fileContent = Yaml::parse(file_get_contents($filePath));
+        }
+
+        if (empty($fileContent)) {
+            return false;
+        }
+
+        // backup file
+        copy($filePath, $filePath . $extBackup);
+
+        // path have html - remove html
+        $path = $fileContent['public_path'];
+        foreach ($fileContent as $key => $item) {
+            if (strpos($key, 'urlpath') !== false || strpos($key, 'tpl') !== false) {
+                $fileContent[$key] = str_replace($path, '', $item);
+            }
+        }
+        $fileContent['image_path'] = str_replace($path, '', $fileContent['image_path']);
+        $tmpPath = trim($path, '/');
+        $fileContent['root'] = str_replace($tmpPath, '', $fileContent['root']);
+        $fileContent['root_urlpath'] = str_replace($tmpPath, '', $fileContent['root_urlpath']);
+
+        // put to yml file
+        $ymlContent = Yaml::dump($fileContent);
+        return file_put_contents($filePath, $ymlContent);
+    }
+
+    /**
+     * Detect web server used
+     * @return bool|string
+     */
+    public function detectWebServer()
+    {
+        $webServer = $_SERVER["SERVER_SOFTWARE"];
+        if (strpos($webServer, 'Microsoft-IIS') !== false) {
+            return 'Microsoft-IIS';
+        } elseif (strpos($webServer, 'Apache') !== false) {
+            return 'Apache';
+        } elseif (strpos(strtolower($webServer), 'nginx') !== false) {
+            return 'Nginx';
         }
 
         return false;
