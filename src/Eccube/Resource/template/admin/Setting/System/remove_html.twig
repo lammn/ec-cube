@@ -1,0 +1,52 @@
+{#
+This file is part of EC-CUBE
+
+Copyright(c) 2000-2015 LOCKON CO.,LTD. All Rights Reserved.
+
+http://www.lockon.co.jp/
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+#}
+
+{% extends 'default_frame.twig' %}
+
+{% set menus = ['setting', 'system', 'removehtml'] %}
+
+{% block title %}システム設定{% endblock %}
+{% block sub_title %}{{ subtitle }}{% endblock %}
+
+{% block main %}
+    <form id="form1" name="form1" method="post" action="{{ url('admin_setting_system_removehtml') }}">
+        <div class="row">
+            <div id="remove_html" class="col-md-12">
+                <div id="remove_html_box" class="box">
+                    <div id="remove_html_box__header" class="box-header">
+                        <h3 class="box-title">{{ subtitle }}</h3>
+                    </div><!-- /.box-header -->
+                    <div id="remove_html_box__body" class="box-body">
+                        <div id="remove_html_box__body_inner" class="form-inline form-group">
+                            <div id="remove_html_box__confirm_button" class="form-group">
+                                <button class="btn btn-primary btn-block" type="submit" name="mode" value="remove" {% if is_hidden_html %} disabled="disabled" {% endif %}>Remove HTML</button>
+                            </div>
+                            <div id="rollback_html_box__confirm_button" class="form-group">
+                                <button class="btn btn-primary btn-block" type="submit" name="mode" value="rollback" {% if is_rollback == false %} disabled="disabled" {% endif %}>Rollback</button>
+                            </div>
+                        </div>
+                    </div><!-- /.box-body -->
+                </div><!-- /.box -->
+            </div>
+        </div>
+    </form>
+{% endblock %}

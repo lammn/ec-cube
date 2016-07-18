@@ -119,6 +119,9 @@
             - id: masterdata
               name: マスターデータ管理
               url: admin_setting_system_masterdata
+            - id: removehtml
+              name: Remove Html
+              url: admin_setting_system_removehtml
 - id: store
   name: オーナーズストア
   has_child: true
