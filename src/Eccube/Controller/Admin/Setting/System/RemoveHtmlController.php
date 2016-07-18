@@ -26,7 +26,6 @@ namespace Eccube\Controller\Admin\Setting\System;
 
 use Eccube\Application;
 use Eccube\Controller\AbstractController;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Class RemoveHtmlController remove html in url
@@ -39,19 +38,40 @@ class RemoveHtmlController extends AbstractController
      */
     private $subtitle;
 
-    private $dir;
+    /**
+     * @var null|string
+     */
+    private $dir = null;
 
+    /**
+     * @var string
+     */
     private $backupExt = '.bak';
 
-    private $accessFileName;
+    /**
+     * @var null|string
+     */
+    private $accessFileName = null;
 
+    /**
+     * name of file config path
+     * @var string
+     */
     private $pathName = 'path.yml';
+
+    /**
+     * @var \Eccube\Service\SystemService
+     */
+    private $system;
+
+    private $webServer;
 
     /**
      * RemoveHtmlController constructor.
      */
     public function __construct()
     {
+        // title of remove html page
         $this->subtitle = 'Remove HTML';
     }
 
@@ -61,13 +81,13 @@ class RemoveHtmlController extends AbstractController
      */
     public function index(Application $app)
     {
-        $system = $app['eccube.service.system'];
+        $this->beforeAction($app);
 
-        $isHiddenHTML = $system->isHiddenHTML($app);
+        $isHiddenHTML = $this->system->isHiddenHTML($app);
         $isRollBack = false;
 
         // Use mod rewrite
-        $isRewrite = $system->isUseModRewrite();
+        $isRewrite = $this->system->isUseModRewrite();
         if (!$isRewrite) {
             $app->addError('admin.system.removehtml.rewrite.error', 'admin');
             return $app->render('Setting/System/remove_html.twig', array(
@@ -78,8 +98,7 @@ class RemoveHtmlController extends AbstractController
         }
 
         // Check permission in root folder
-        $root = $app['config']['root_dir'];
-        $isWrite = $system->isWritable($root);
+        $isWrite = $this->system->isWritable($this->dir);
         if (!$isWrite) {
             $app->addError('admin.system.removehtml.permission.error', 'admin');
             return $app->render('Setting/System/remove_html.twig', array(
@@ -90,26 +109,33 @@ class RemoveHtmlController extends AbstractController
         }
 
         // Backup check
-        $this->accessFileName = '.htaccess';
-        $this->dir = $root;
-        $accessFile = $this->dir . '/' . $this->accessFileName;
-        $isRollBack = $system->isRollBack($isHiddenHTML, $this->dir, $this->accessFileName . $this->backupExt);
+        $isRollBack = $this->system->isRollBack($isHiddenHTML, $this->dir, $this->accessFileName . $this->backupExt);
 
-
-        $apache = $app['eccube.service.apache'];
+        // Path to config path.yml file
         $configDir = $app['config']['root_dir'] . '/app/config/eccube/';
         $pathFile = $configDir . $this->pathName;
 
+        // Access file of web server
+        $accessFile = $this->dir . '/' . $this->accessFileName;
         switch ($app['request']->get('mode')) {
             case 'remove':
-                $apache->backupConfig($accessFile, $accessFile . $this->backupExt);
-                $apache->changeConfig($accessFile, $accessFile);
-                $this->changeContentYml($configDir, $this->pathName, $this->backupExt);
+                // Backup access file
+                $this->webServer->backupConfig($accessFile, $accessFile . $this->backupExt);
+                $this->webServer->changeConfig($accessFile, $accessFile);
+
+                // change yml
+                $this->system->changeContentYml($configDir, $this->pathName, $this->backupExt);
+                $app->addSuccess('admin.system.removehtml.remove.success', 'admin');
+                return $app->redirect($app->url('admin_setting_system_removehtml'));
                 break;
 
             case 'rollback':
-                $apache->rollbackConfig($accessFile . $this->backupExt, $accessFile);
-                $apache->rollbackConfig($pathFile . $this->backupExt, $pathFile);
+                // rollback access file
+                $this->webServer->rollbackConfig($accessFile . $this->backupExt, $accessFile);
+                // yml file
+                $this->webServer->rollbackConfig($pathFile . $this->backupExt, $pathFile);
+                $app->addSuccess('admin.system.removehtml.rollback.success', 'admin');
+                return $app->redirect($app->url('admin_setting_system_removehtml'));
                 break;
 
             default:
@@ -124,43 +150,35 @@ class RemoveHtmlController extends AbstractController
     }
 
     /**
-     * Change content of yml config file
-     * @param $dir
-     * @param $filename
-     * @param string $extBackup
-     * @return bool
+     * Before action
+     * @param Application $app
      */
-    protected function changeContentYml($dir, $filename, $extBackup = '.bak')
+    private function beforeAction(Application $app)
     {
-        $filePath = $dir . $filename;
-        $fileContent = '';
+        // root folder where save config file
+        $this->dir = $app['config']['root_dir'];
 
-        if (file_exists($filePath)) {
-            $fileContent = Yaml::parse(file_get_contents($filePath));
+        // system service provider
+        $this->system = $app['eccube.service.system'];
+
+        // detect web server used
+        $webServer = $this->system->detectWebServer();
+        switch ($webServer) {
+            case 'Apache':
+                $this->webServer = $app['eccube.service.apache'];
+                $this->accessFileName = '.htaccess';
+                break;
+
+            case 'Microsoft-IIS':
+                $this->accessFileName = 'web.config';
+                break;
+
+            case 'Nginx':
+                break;
+
+            default:
+                break;
         }
-
-        if (empty($fileContent)) {
-            return false;
-        }
-
-        // backup file
-        copy($filePath, $filePath . $extBackup);
-
-        $path = $fileContent['public_path'];
-        foreach ($fileContent as $key => $item) {
-            if (strpos($key, 'urlpath') !== false || strpos($key, 'tpl') !== false) {
-                $fileContent[$key] = str_replace($path, '', $item);
-            }
-        }
-        $fileContent['image_path'] = str_replace($path, '', $fileContent['image_path']);
-
-        $tmp = str_replace($path, '', $fileContent['root']);
-        $fileContent['root'] = $tmp == '' ? '/' : $tmp ;
-        $fileContent['root_urlpath'] = str_replace(trim($path, '/'), '', $fileContent['root_urlpath']);
-        
-        $ymlContent = Yaml::dump($fileContent);
-
-        file_put_contents($filePath, $ymlContent);
-        return true;
     }
+
 }
